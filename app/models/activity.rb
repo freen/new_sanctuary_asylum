@@ -109,12 +109,20 @@ class Activity < ApplicationRecord
     activity_type.accompaniment_eligible
   end
 
+  def combined_activity_parent?
+    combined_activity_children.present?
+  end
+
+  def combined_activity_child?
+    combined_activity_parent.present?
+  end
+
   private
 
   def activity_combination_set
-    if combined_activity_children
+    if combined_activity_parent?
       [self] + combined_activity_children
-    elsif combined_activity_parent
+    elsif combined_activity_child?
       [combined_activity_parent] + combined_activity_parent.combined_activity_children
     else
       []
@@ -122,16 +130,16 @@ class Activity < ApplicationRecord
   end
 
   def activity_combination_parent
-    if combined_activity_children
+    if combined_activity_parent?
       self
-    elsif combined_activity_parent
+    elsif combined_activity_child?
       combined_activity_parent
     end
   end
 
   def activity_combination_max_depth_of_one
-    return unless combined_activity_parent
-    if combined_activity_parent.combined_activity_parent || combined_activity_children
+    return unless combined_activity_child?
+    if combined_activity_parent? || combined_activity_parent.combined_activity_child?
       errors.add(:combined_activity_parent, 'Activity combinations cannot be daisy-chained. There should be a single' \
                                             ' parent activity for a group of combined activities.')
       false
@@ -140,7 +148,7 @@ class Activity < ApplicationRecord
 
   def activity_combination_parent_must_be_earliest_activity
     combination = activity_combination_set
-    return if combination.empty?
+    return if combination.empty? || combination.length === 1
     earliest_activity = combination.sort(&:occur_at).first
     unless earliest_activity === activity_combination_parent
       errors.add(:combined_activity_parent, 'Activity combination parent must be earliest activity.')
