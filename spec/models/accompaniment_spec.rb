@@ -56,7 +56,7 @@ RSpec.describe Accompaniment, type: :model do
           create_list :accompaniment, 3, user_id: user.id, activity: activity
         end
 
-         let(:new_accompaniment) do
+        let(:new_accompaniment) do
           build :accompaniment, activity: activity.reload, user: user
         end
 
