@@ -10,8 +10,9 @@ class Activity < ApplicationRecord
   has_many :users, through: :accompaniments
   has_many :accompaniment_reports, dependent: :destroy
 
-  validate :accompaniment_activity_combination_max_depth_of_one
   validates :activity_type_id, :occur_at, :friend_id, :region_id, presence: true
+  validate :activity_combination_max_depth_of_one
+  validate :activity_combination_parent_must_be_earliest_activity
 
   scope :accompaniment_eligible, -> {
     joins(:activity_type).where(activity_types: { accompaniment_eligible: true })
@@ -110,11 +111,39 @@ class Activity < ApplicationRecord
 
   private
 
-  def accompaniment_activity_combination_max_depth_of_one
+  def activity_combination_set
+    if combined_activity_children
+      [self] + combined_activity_children
+    elsif combined_activity_parent
+      [combined_activity_parent] + combined_activity_parent.combined_activity_children
+    else
+      []
+    end
+  end
+
+  def activity_combination_parent
+    if combined_activity_children
+      self
+    elsif combined_activity_parent
+      combined_activity_parent
+    end
+  end
+
+  def activity_combination_max_depth_of_one
     return unless combined_activity_parent
     if combined_activity_parent.combined_activity_parent || combined_activity_children
-      errors.add(:combined_activity_parent, 'Activity combinations cannot be daisy-chained. There ' \
-                                                          'should be a single parent activity for a group of combined activities.')
+      errors.add(:combined_activity_parent, 'Activity combinations cannot be daisy-chained. There should be a single' \
+                                            ' parent activity for a group of combined activities.')
+      false
+    end
+  end
+
+  def activity_combination_parent_must_be_earliest_activity
+    combination = activity_combination_set
+    return if combination.empty?
+    earliest_activity = combination.sort(&:occur_at).first
+    unless earliest_activity === activity_combination_parent
+      errors.add(:combined_activity_parent, 'Activity combination parent must be earliest activity.')
       false
     end
   end
