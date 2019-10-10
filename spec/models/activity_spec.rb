@@ -21,15 +21,17 @@ RSpec.describe Activity, type: :model do
     context 'associations' do
       it 'should automatically hydrate the other side of a belongs_to' do
         equivalent_time = 1.day.from_now - 1.hour
-        activity_1 = create(:activity, occur_at: equivalent_time)
-        activity_2 = create(:activity, occur_at: equivalent_time, combined_activity_parent: activity_1)
+        activity_1 = create(:activity, occur_at: equivalent_time, public_notes: 'parent activity')
+        activity_2 = create(:activity, occur_at: equivalent_time, public_notes: 'child activity',
+                            combined_activity_parent: activity_1)
         expect(activity_1.combined_activity_children.first).to eq activity_2
       end
 
       it 'should automatically hydrate the other side of a has_many' do
         equivalent_time = 1.day.from_now - 1.hour
-        activity_1 = create(:activity, occur_at: equivalent_time)
-        activity_2 = create(:activity, occur_at: equivalent_time, combined_activity_children: [activity_1])
+        activity_1 = create(:activity, occur_at: equivalent_time, public_notes: 'child activity')
+        activity_2 = create(:activity, occur_at: equivalent_time, public_notes: 'parent activity',
+                            combined_activity_children: [activity_1])
         expect(activity_1.combined_activity_parent).to eq activity_2
       end
     end

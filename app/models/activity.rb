@@ -7,8 +7,8 @@ class Activity < ApplicationRecord
   has_many :accompaniments, -> { order(created_at: :asc) }, dependent: :destroy
   has_many :users, through: :accompaniments
   has_many :accompaniment_reports, dependent: :destroy
-  belongs_to :combined_activity_parent, class_name: 'Activity', inverse_of: :combined_activity_children,
-             foreign_key: 'id'
+
+  belongs_to :combined_activity_parent, class_name: 'Activity', inverse_of: :combined_activity_children, optional: true
   has_many :combined_activity_children, class_name: 'Activity', inverse_of: :combined_activity_parent,
            foreign_key: 'combined_activity_parent_id'
 
