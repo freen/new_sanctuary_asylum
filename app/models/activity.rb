@@ -4,11 +4,13 @@ class Activity < ApplicationRecord
   belongs_to :judge
   belongs_to :location
   belongs_to :activity_type
-  belongs_to :combined_activity_parent, class_name: 'Activity', optional: true
-  has_many :combined_activity_children, class_name: 'Activity', foreign_key: 'combined_activity_parent'
   has_many :accompaniments, -> { order(created_at: :asc) }, dependent: :destroy
   has_many :users, through: :accompaniments
   has_many :accompaniment_reports, dependent: :destroy
+  belongs_to :combined_activity_parent, class_name: 'Activity', inverse_of: :combined_activity_children,
+             foreign_key: 'id'
+  has_many :combined_activity_children, class_name: 'Activity', inverse_of: :combined_activity_parent,
+           foreign_key: 'combined_activity_parent_id'
 
   validates :activity_type_id, :occur_at, :friend_id, :region_id, presence: true
   validate :activity_combination_max_depth_of_one
@@ -125,7 +127,7 @@ class Activity < ApplicationRecord
     elsif combined_activity_child?
       [combined_activity_parent] + combined_activity_parent.combined_activity_children
     else
-      []
+      false
     end
   end
 
@@ -134,6 +136,8 @@ class Activity < ApplicationRecord
       self
     elsif combined_activity_child?
       combined_activity_parent
+    else
+      false
     end
   end
 
@@ -147,10 +151,11 @@ class Activity < ApplicationRecord
   end
 
   def activity_combination_parent_must_be_earliest_activity
+    return unless combined_activity_child? || combined_activity_parent?
     combination = activity_combination_set
     return if combination.empty? || combination.length === 1
-    earliest_activity = combination.sort(&:occur_at).first
-    unless earliest_activity === activity_combination_parent
+    earliest_activity = combination.sort_by(&:occur_at).first
+    unless earliest_activity.occur_at === activity_combination_parent.occur_at
       errors.add(:combined_activity_parent, 'Activity combination parent must be earliest activity.')
       false
     end

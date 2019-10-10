@@ -18,6 +18,22 @@ RSpec.describe Activity, type: :model do
     let(:child_activity_1) { create(:activity, occur_at: 1.day.from_now, combined_activity_parent: parent_activity) }
     let(:child_activity_2) { create(:activity, occur_at: 1.day.from_now, combined_activity_parent: parent_activity) }
 
+    context 'associations' do
+      it 'should automatically hydrate the other side of a belongs_to' do
+        equivalent_time = 1.day.from_now - 1.hour
+        activity_1 = create(:activity, occur_at: equivalent_time)
+        activity_2 = create(:activity, occur_at: equivalent_time, combined_activity_parent: activity_1)
+        expect(activity_1.combined_activity_children.first).to eq activity_2
+      end
+
+      it 'should automatically hydrate the other side of a has_many' do
+        equivalent_time = 1.day.from_now - 1.hour
+        activity_1 = create(:activity, occur_at: equivalent_time)
+        activity_2 = create(:activity, occur_at: equivalent_time, combined_activity_children: [activity_1])
+        expect(activity_1.combined_activity_parent).to eq activity_2
+      end
+    end
+
     describe '#activity_combination_set' do
       context 'for a combination of three activities' do
         it 'should be an array of all three activities, regardless of which activity is called' do
@@ -41,10 +57,9 @@ RSpec.describe Activity, type: :model do
 
     describe 'the parent must be the earliest activity' do
       context 'when a later activity has been assigned the parent of the combination with an earlier activity' do
-        let!(:later_activity) { create(:activity, occur_at: 1.day.from_now + 1.hour) }
-        let(:earlier_activity) { build(:activity, occur_at: 1.day.from_now, combined_activity_parent: later_activity) }
-
         it 'does NOT save later activity as its parent' do
+          later_activity = create(:activity, occur_at: 1.day.from_now + 1.hour)
+          earlier_activity = build(:activity, occur_at: 1.day.from_now, combined_activity_parent: later_activity)
           expect(earlier_activity.save).to be false
           expect(earlier_activity.errors[:combined_activity_parent])
             .to eq ['Activity combination parent must be earliest activity.']
@@ -52,10 +67,9 @@ RSpec.describe Activity, type: :model do
       end
 
       context 'when an earlier activity has been assigned the parent of the combination with a later activity' do
-        let(:earlier_activity) { create(:activity, occur_at: 1.day.from_now) }
-        let(:later_activity) { build(:activity, occur_at: 1.day.from_now + 1.hour, combined_activity_parent: earlier_activity) }
-
         it 'successfully saves earlier activity as its parent' do
+          earlier_activity = create(:activity, occur_at: 1.day.from_now)
+          later_activity = build(:activity, occur_at: 1.day.from_now + 1.hour, combined_activity_parent: earlier_activity)
           expect(later_activity.save).to be true
         end
       end
@@ -63,9 +77,10 @@ RSpec.describe Activity, type: :model do
 
     describe 'enforce a maximum combination depth of one' do
       context 'when activities are daisy-chained' do
+        equivalent_time = 1.day.from_now
         let(:first_activity_daisy) { create(:activity, occur_at: 1.day.from_now - 1.hour) }
-        let(:second_activity_daisy) { create(:activity, occur_at: 1.day.from_now, combined_activity_parent: first_activity_daisy) }
-        let(:third_activity_daisy) { build(:activity, occur_at: 1.day.from_now, combined_activity_parent: second_activity_daisy) }
+        let(:second_activity_daisy) { create(:activity, occur_at: equivalent_time, combined_activity_parent: first_activity_daisy) }
+        let(:third_activity_daisy) { build(:activity, occur_at: equivalent_time, combined_activity_parent: second_activity_daisy) }
 
         it 'should NOT successfully save' do
           expect(third_activity_daisy.save).to be false
